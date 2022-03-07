@@ -1,5 +1,6 @@
 module Tracks (
-    rowOptions
+    rowOptions,
+    validOptions
     ) where
 
 {- | The tracks module solves track problems such as the ones in newspapers
@@ -20,10 +21,6 @@ Translation when unicode is escaped:
 "═║" = "\9552\9553"
 "╔╗" = "\9556\9559"
 "╚╝" = "\9562\9565"
-
-" \9562\9565" = " ╚╝"
-"\9562\9565 " = "╚╝ "
-"\9552\9565 " = "═╝ "
 -}
 
 type Cell = Char
@@ -47,14 +44,6 @@ cellOptions False True  = "═╚"
 cellOptions True  False = "║╗"
 cellOptions True  True  = "╔"
 
-{- | Given a list of cell options and a possibly fixed value for the cell,
-determines a valid list of options. Either the full list, or the one matching
-the fixed value, or null if nothing matches.
--}
-validOptions :: [Cell] -> Cell -> [Cell]
-validOptions cells '-' = cells
-validOptions cells fixed = if fixed `elem` cells then [fixed] else []
-
 {- | Says whether a cell has a path to the North 
 -}
 hasNorth :: Cell -> Bool
@@ -65,28 +54,69 @@ hasNorth c = c `elem` "║╚╝"
 hasWest :: Cell -> Bool
 hasWest c = c `elem` "═╗╝"
 
+{- | Says whether a cell has a path to the South 
+-}
+hasSouth :: Cell -> Bool
+hasSouth c = c `elem` "║╔╗"
+
+{- | Says whether a cell has a path to the East
+-}
+hasEast :: Cell -> Bool
+hasEast c = c `elem` "═╔╚"
+
 {- | Given the fixed cells, the previous row, the current row to date, and
 a count of available spaces, generate a list of possible complete rows
 -}
-rowOptions :: Row -> Row -> Row -> Int -> Bool -> [Row]
-rowOptions [] [] [] 0 _ = [] -- propagate null solution
-rowOptions [] [] (c:cs) 0 force = if (force || not (hasWest c)) then [(c:cs)] else [] 
-rowOptions [] [] _ _ _ = [] -- ignore any solutions with remaining spaces
-rowOptions [] _ _ _ _ = error "still have prev cells left over"
-rowOptions _ [] _ _ _ = error "still have fixed cells left over"
-rowOptions (f:fs) (p:ps) curr spaces _ = foldl rowOptions' [] options
+rowOptions :: Row -> Row -> Row -> Int -> [Row]
+rowOptions fix prev curr spaces =
+    rowOptions' (reverse fix) (reverse prev) curr spaces False
+
+{- | Like rowOptions, but taking a flag to say whether the previously
+inserted item (head of curr) was forced by being a member of fix. Also,
+takes the fixed and prev lists in reverse order, so they can be
+accessed efficiently when constructing solutions from the right with
+foldl.
+-}
+rowOptions' :: Row -> Row -> Row -> Int -> Bool -> [Row]
+rowOptions' [] [] [] 0 _ = [] -- propagate null solution
+rowOptions' [] [] (c:cs) 0 force = if (force || not (hasWest c)) then [(c:cs)] else [] 
+rowOptions' [] [] _ _ _ = [] -- ignore any solutions with remaining spaces
+rowOptions' [] _ _ _ _ = error "still have prev cells left over"
+rowOptions' (f:fs) prev curr spaces _ = foldl rowOptions'' [] options
     where
-        west = not (null curr) && hasWest (head curr)
-        north = hasNorth p
+        options = validOptions curr prev f
         fix = f /= '-'
-        -- TODO the problem with validOptions is that we want to override it at the edges if forced
-        options = validOptions (cellOptions north west ) f
+        prev' = if null prev then [] else tail prev
         adj = adjustSpaces spaces
-        rowOptions' others cell = 
-            rowOptions fs ps (cell:curr) (adj cell) fix ++ others
+        rowOptions'' others cell = 
+            rowOptions' fs prev' (cell:curr) (adj cell) fix ++ others
 
 {- | Adjust the number of spaces if we use one 
 -}
 adjustSpaces :: Int -> Char -> Int
 adjustSpaces spaces cell = if cell == ' ' then spaces - 1 else spaces
-  
+
+{- | Calculates a list of valid options for a cell, given the eastern cells on
+the same row and the southern cells on the previous row, and a fixed value if
+any. Returns either the full list, or the one matching the fixed value, or
+null if nothing matches.
+-}
+validOptions :: [Cell] -> [Cell] -> Cell -> [Cell]
+validOptions curr prev fix = 
+    let
+        knowEast = not (null curr)
+        knowSouth = not (null prev)
+        east = knowEast && hasWest (head curr)
+        south = knowSouth && hasNorth (head prev)
+        fixMatchEast  = not knowEast  || east  == (hasEast  fix) 
+        fixMatchSouth = not knowSouth || south == (hasSouth fix)
+    in
+        if fix == '-' then
+            -- if free choice of cell, allow any possibility that fits
+            cellOptions south east
+        else
+            -- if fixed cell, allow it if possible (treating edges as unknown)
+            if fixMatchEast && fixMatchSouth then
+                [fix]
+            else
+                []  -- nothing fits
