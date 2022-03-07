@@ -13,7 +13,12 @@ tracksTests = [
     testRowOptionsFirstRowOneSpaceForceMid,
     testRowOptionsFirstRowOneSpaceForceIllegalExit,
     testRowOptionsFirstRowTwoSpacesForceExit,
-    testGridOptionsSimple]
+    testGridOptionsSimple,
+    testGridOptionsPartFixed,
+    testGridOptionsEntryExit,
+    testGridOptionsTimesMarch5,
+    testSolveEntryExit,
+    testSolveTimesMarch5]
 
 testValidOptions :: Test
 testValidOptions = 
@@ -70,3 +75,78 @@ testGridOptionsSimple =
       " ║║",
       " ╚╝"]]
     (gridOptions ["---", "---", "---"] [1, 1, 1])
+
+testGridOptionsPartFixed :: Test
+testGridOptionsPartFixed =
+    TestCase $ assertEqual "A small grid with only one solution"
+    [[" ╔╗",
+      " ║║",
+      " ╚╝"]]
+    (gridOptions 
+     ["-╔-",
+      "--║", 
+      "---"] 
+     [1, 1, 1])
+
+testGridOptionsEntryExit :: Test
+testGridOptionsEntryExit =
+    TestCase $ assertEqual "A small grid with entry and exit"
+    [[" ╔╝",
+      " ║ ",
+      "╔╝ "]]
+    (gridOptions 
+    ["--╝",
+     "---", 
+     "╔--"] 
+     [1, 2, 1])
+
+testGridOptionsTimesMarch5 :: Test
+testGridOptionsTimesMarch5 =
+    TestCase $ assertEqual "Puzzle from the Times March 5"
+    192
+    (length $ gridOptions 
+    ["--------",
+     "----╝---",
+     "--------",
+     "--------",
+     "-----║--",
+     "--------",
+     "--------",
+     "╝------║"]
+     [5, 5, 5, 3, 4, 4, 4, 6])
+
+testSolveEntryExit :: Test
+testSolveEntryExit =
+    TestCase $ assertEqual "A small grid with entry and exit"
+    [[" ╔╝",
+      " ║ ",
+      "╔╝ "]]
+    (solve 
+    ["--╝",
+     "---", 
+     "╔--"] 
+     [2, 1, 2]
+     [1, 3, 1])
+
+testSolveTimesMarch5 :: Test
+testSolveTimesMarch5 =
+    TestCase $ assertEqual "Puzzle from the Times March 5"
+    [["    ╔═╗ ",
+      "   ╔╝ ║ ",
+      "   ║ ╔╝ ",
+      "╔═╗║ ║  ",
+      "║ ╚╝ ║  ",
+      "║    ╚╗ ",
+      "║     ╚╗",
+      "╝      ║"]]
+    (solve 
+    ["--------",
+     "----╝---",
+     "--------",
+     "--------",
+     "-----║--",
+     "--------",
+     "--------",
+     "╝------║"]
+     [3, 3, 3, 5, 4, 3, 3, 2]
+     [5, 1, 2, 4, 2, 5, 5, 2])

@@ -1,8 +1,11 @@
 module Tracks (
+    solve,
     gridOptions,
     rowOptions,
     validOptions
     ) where
+
+import Data.List
 
 {- | The tracks module solves track problems such as the ones in newspapers
 where you have to find the path through a rectangular space where only some
@@ -31,39 +34,32 @@ type Counts = [Int]
 
 {- | The top-level function takes a puzzle and returns a list of possible
 solutions. If there are no solutions, empty list is returned. If the input
-data is inconsistent (mismatching grid or counts) an error is returned.
+data is inconsistent (mismatching grid or counts) an error is raised.
 Unlike some such puzzles, solutions containing loops are acceptable
 -}
--- solve :: Grid -> Counts -> Counts -> Either String [Grid]
+solve :: Grid -> Counts -> Counts -> [Grid]
+solve grid rowCounts colCounts =
+    let
+        nCols = length (head grid)
+        rowSpaces = map (\x -> nCols - x) rowCounts
+        allGrids = gridOptions grid rowSpaces
+    in
+        filter (matchesColCounts colCounts) allGrids 
 
-{- | For an unknown cell, return a list of possible contents. We pass in flags
-to say whether there is a path from the cell to the South and East.
+{- | Returns True if the columns in the given grid match the supplied
+list of non-empty cell counts
 -}
-cellOptions :: Bool -> Bool -> [Cell]
-cellOptions False False = " ╝"
-cellOptions False True  = "═╚"
-cellOptions True  False = "║╗"
-cellOptions True  True  = "╔"
+matchesColCounts :: Counts -> Grid -> Bool
+matchesColCounts counts grid =
+    all (\(c, r) -> c == countNonEmpty r) (zip counts (transpose grid))
 
-{- | Says whether a cell has a path to the North 
+{- | Counts the number of non-empty cells in the given row
 -}
-hasNorth :: Cell -> Bool
-hasNorth c = c `elem` "║╚╝"
-
-{- | Says whether a cell has a path to the West
--}
-hasWest :: Cell -> Bool
-hasWest c = c `elem` "═╗╝"
-
-{- | Says whether a cell has a path to the South 
--}
-hasSouth :: Cell -> Bool
-hasSouth c = c `elem` "║╔╗"
-
-{- | Says whether a cell has a path to the East
--}
-hasEast :: Cell -> Bool
-hasEast c = c `elem` "═╔╚"
+countNonEmpty :: Row -> Int
+countNonEmpty row = foldr (\x total -> total + nonEmpty x) 0 row 
+    where
+        nonEmpty ' ' = 0
+        nonEmpty _ = 1
 
 {- | Given a grid of fixed cells and a count of available spaces for each
 row, generate a list of possible complete grids
@@ -165,3 +161,32 @@ validOptions curr prev fix =
                 [fix]
             else
                 []  -- nothing fits
+
+{- | For an unknown cell, return a list of possible contents. We pass in flags
+to say whether there is a path from the cell to the South and East.
+-}
+cellOptions :: Bool -> Bool -> [Cell]
+cellOptions False False = " ╝"
+cellOptions False True  = "═╚"
+cellOptions True  False = "║╗"
+cellOptions True  True  = "╔"
+
+{- | Says whether a cell has a path to the North 
+-}
+hasNorth :: Cell -> Bool
+hasNorth c = c `elem` "║╚╝"
+
+{- | Says whether a cell has a path to the West
+-}
+hasWest :: Cell -> Bool
+hasWest c = c `elem` "═╗╝"
+
+{- | Says whether a cell has a path to the South 
+-}
+hasSouth :: Cell -> Bool
+hasSouth c = c `elem` "║╔╗"
+
+{- | Says whether a cell has a path to the East
+-}
+hasEast :: Cell -> Bool
+hasEast c = c `elem` "═╔╚"
