@@ -1,4 +1,5 @@
 module Tracks (
+    gridOptions,
     rowOptions,
     validOptions
     ) where
@@ -64,32 +65,76 @@ hasSouth c = c `elem` "║╔╗"
 hasEast :: Cell -> Bool
 hasEast c = c `elem` "═╔╚"
 
-{- | Given the fixed cells, the previous row, the current row to date, and
-a count of available spaces, generate a list of possible complete rows
+{- | Given a grid of fixed cells and a count of available spaces for each
+row, generate a list of possible complete grids
 -}
-rowOptions :: Row -> Row -> Row -> Int -> [Row]
-rowOptions fix prev curr spaces =
-    rowOptions' (reverse fix) (reverse prev) curr spaces False
+gridOptions :: Grid -> Counts -> [Grid]
+gridOptions fix spaces =
+    gridOptions' (reverse fix) (reverse spaces) "" []
+
+{- | Like gridOptions, but taking a current grid being constructed.
+-}
+gridOptions' :: Grid -> Counts -> Row -> Grid -> [Grid]
+gridOptions' [] [] lastRow curr = endOfGrid curr lastRow
+gridOptions' [] _ _ _ = error "more counts than rows in the grid"
+gridOptions' _ [] _ _ = error "more rows than counts in the grid"
+gridOptions' (f:fs) (c:cs) _ curr = foldr gridOptions'' [] options
+    where
+        prev = if null curr then [] else head curr
+        options = rowOptions f prev c
+        gridOptions'' row others = gridOptions' fs cs f (row:curr) ++ others
+
+{- | Special handling for the end of the grid. We want to suppress
+solutions that have tracks leading out of the edge, unless they
+were part of the fixed grid.
+-}
+endOfGrid :: Grid -> Row -> [Grid]
+endOfGrid [] _ = []
+endOfGrid (r:rs) fixed = 
+    -- only accept solutions where the only cells that lead north are fixed
+    if all (\(c,f) -> f == c || not (hasNorth c)) (zip r fixed) then
+        [(r:rs)]
+    else
+        [] 
+
+{- | Given the fixed cells, the previous row, and a count of available
+spaces, generate a list of possible complete rows.
+-}
+rowOptions :: Row -> Row -> Int -> [Row]
+rowOptions fix prev spaces =
+    rowOptions' (reverse fix) (reverse prev) spaces '-' ""
 
 {- | Like rowOptions, but taking a flag to say whether the previously
 inserted item (head of curr) was forced by being a member of fix. Also,
 takes the fixed and prev lists in reverse order, so they can be
 accessed efficiently when constructing solutions from the right with
-foldl.
+foldl. Also, takes the current row to date, allowing this to be grown
+recursively. Finally, takes the last fixed cell, so it can trim unwanted
+solutions.
 -}
-rowOptions' :: Row -> Row -> Row -> Int -> Bool -> [Row]
-rowOptions' [] [] [] 0 _ = [] -- propagate null solution
-rowOptions' [] [] (c:cs) 0 force = if (force || not (hasWest c)) then [(c:cs)] else [] 
+rowOptions' :: Row -> Row -> Int -> Cell -> Row -> [Row]
+rowOptions' [] [] 0 lastFix curr = endOfRow curr lastFix
 rowOptions' [] [] _ _ _ = [] -- ignore any solutions with remaining spaces
 rowOptions' [] _ _ _ _ = error "still have prev cells left over"
-rowOptions' (f:fs) prev curr spaces _ = foldl rowOptions'' [] options
+rowOptions' (f:fs) prev spaces _ curr = foldr rowOptions'' [] options
     where
         options = validOptions curr prev f
-        fix = f /= '-'
         prev' = if null prev then [] else tail prev
         adj = adjustSpaces spaces
-        rowOptions'' others cell = 
-            rowOptions' fs prev' (cell:curr) (adj cell) fix ++ others
+        rowOptions'' cell others = 
+            rowOptions' fs prev' (adj cell) f (cell:curr) ++ others
+
+{- | Special handling for the end of the row. We want to suppress
+solutions that have tracks leading out of the edge, unless they
+were part of the fixed grid.
+-}
+endOfRow :: Row -> Cell -> [Row]
+endOfRow [] _ = []
+endOfRow (c:cs) fixed = 
+    if fixed == c || not (hasWest c) then
+        [(c:cs)] 
+    else
+        [] 
 
 {- | Adjust the number of spaces if we use one 
 -}
